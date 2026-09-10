@@ -120,3 +120,25 @@ def test_helper_rejects_non_block_device():
     assert not smart_helper.validate_device("/dev/../etc/passwd")
     assert not smart_helper.validate_device("/dev/-a")
     assert not smart_helper.validate_device("/dev/null")   # char device, bukan block
+
+
+def test_bundled_smartctl_priority(tmp_path, monkeypatch):
+    """Windows onedir: smartctl di samping exe harus menang atas PATH sistem."""
+    monkeypatch.setattr(smart_helper, "_IS_WINDOWS", True)
+    monkeypatch.setattr(smart_helper.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(smart_helper.sys, "executable",
+                        str(tmp_path / "DiskHealth.exe"), raising=False)
+
+    # Belum ada bundle -> None (nanti jatuh ke which()/kandidat sistem).
+    assert smart_helper._bundled_smartctl() is None
+
+    # Layout root: exe & smartctl.exe sefolder.
+    (tmp_path / "smartctl.exe").write_bytes(b"")
+    assert smart_helper._bundled_smartctl() == str(tmp_path / "smartctl.exe")
+
+    # Layout subfolder smartmontools\ juga dikenali.
+    (tmp_path / "smartctl.exe").unlink()
+    sub = tmp_path / "smartmontools"
+    sub.mkdir()
+    (sub / "smartctl.exe").write_bytes(b"")
+    assert smart_helper._bundled_smartctl() == str(sub / "smartctl.exe")

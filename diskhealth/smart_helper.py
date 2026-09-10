@@ -84,7 +84,32 @@ def _set_parent_death_signal() -> None:
         pass
 
 
+def _bundled_smartctl() -> str | None:
+    """smartctl yang dipaketkan bareng aplikasi (installer Windows).
+
+    Prioritas #1: dengan begitu di mesin teknisi kita SELALU pakai versi yang
+    sudah dites, bukan smartctl lain yang kebetulan nyangkut di PATH. Dicari di:
+      - folder exe (build PyInstaller onedir), dan
+      - sys._MEIPASS (build onefile — folder ekstraksi sementara).
+    """
+    exe_name = "smartctl.exe" if _IS_WINDOWS else "smartctl"
+    roots: list[str] = []
+    if getattr(sys, "frozen", False):
+        roots.append(os.path.dirname(sys.executable))
+    meipass = getattr(sys, "_MEIPASS", None)  # onefile: root ekstraksi runtime
+    if meipass:
+        roots.append(meipass)
+    # Layout installer: exe di root, smartctl di subfolder smartmontools\.
+    for root in list(roots):
+        roots.append(os.path.join(root, "smartmontools"))
+    return next((os.path.join(r, exe_name)
+                 for r in roots if os.path.isfile(os.path.join(r, exe_name))), None)
+
+
 def find_smartctl() -> str | None:
+    bundled = _bundled_smartctl()
+    if bundled:
+        return bundled
     # Di bawah pkexec, PATH sudah disanitasi (/usr/sbin:/usr/bin:/sbin:/bin),
     # jadi shutil.which aman dipakai.
     found = shutil.which("smartctl")
