@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 #
-# PyInstaller spec — build "onedir" (BUKAN onefile) untuk DiskHealth.
+# PyInstaller spec — build "onedir" (BUKAN onefile) untuk AmubaSMART.
 #
 # Kenapa onedir, padahal maunya "1 file"?
 #   "1 file" yang dilihat teknisi = installer Inno Setup (di bawah). Itu urusan
@@ -17,8 +17,8 @@
 #   kita dapat "1 file buat dibagikan" TANPA kelemahan onefile saat runtime.
 #
 # Build (di Windows, venv aktif):
-#   pyinstaller packaging\windows\DiskHealth.spec --noconfirm
-# Output: dist\DiskHealth\  (berisi DiskHealth.exe + semua DLL + smartctl)
+#   pyinstaller packaging\windows\AmubaSMART.spec --noconfirm
+# Output: dist\AmubaSMART\  (berisi AmubaSMART.exe + semua DLL + smartctl)
 
 import os
 from pathlib import Path
@@ -61,17 +61,17 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,               # onedir: DLL ditaruh di folder, bukan di exe
-    name="DiskHealth",
+    name="AmubaSMART",
     console=False,                       # aplikasi GUI, tanpa jendela console hitam
     # KUNCI: manifest UAC ditanam di exe -> Windows minta elevasi sejak start,
     # jadi relaunch_as_admin_windows() jadi jaring pengaman, bukan jalur utama.
     uac_admin=True,
     disable_windowed_traceback=False,
-    icon=str(ROOT / "packaging" / "windows" / "diskhealth.ico")
-         if (ROOT / "packaging" / "windows" / "diskhealth.ico").is_file() else None,
+    icon=str(ROOT / "packaging" / "windows" / "amubasmart.ico")
+         if (ROOT / "packaging" / "windows" / "amubasmart.ico").is_file() else None,
 )
 coll = COLLECT(
     exe, a.binaries, a.datas,
     strip=False, upx=False,              # JANGAN upx: bikin flag antivirus makin sering
-    name="DiskHealth",
+    name="AmubaSMART",
 )

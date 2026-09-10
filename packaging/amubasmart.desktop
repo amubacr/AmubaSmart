@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=AmubaSMART
+Comment=Analisa kesehatan SMART untuk SSD/HDD
+Exec=amubasmart
+Icon=drive-harddisk
+Categories=System;Monitor;
+Terminal=false
+Keywords=smart;disk;ssd;hdd;health;smartctl;

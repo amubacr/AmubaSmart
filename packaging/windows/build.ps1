@@ -24,8 +24,8 @@ Write-Host "== 2/4  Test cepat ==" -ForegroundColor Cyan
 python -m pytest -q
 
 Write-Host "== 3/4  PyInstaller (onedir) ==" -ForegroundColor Cyan
-if (Test-Path "dist\DiskHealth") { Remove-Item -Recurse -Force "dist\DiskHealth" }
-pyinstaller packaging\windows\DiskHealth.spec --noconfirm
+if (Test-Path "dist\AmubaSMART") { Remove-Item -Recurse -Force "dist\AmubaSMART" }
+pyinstaller packaging\windows\AmubaSMART.spec --noconfirm
 
 Write-Host "== 4/4  Inno Setup (bungkus jadi 1 installer) ==" -ForegroundColor Cyan
 $iscc = @(
@@ -33,7 +33,7 @@ $iscc = @(
     "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "ISCC.exe tidak ketemu. Install Inno Setup 6 dari jrsoftware.org." }
-& $iscc "packaging\windows\DiskHealth.iss"
+& $iscc "packaging\windows\AmubaSMART.iss"
 
 Write-Host ""
 Write-Host "SELESAI. Installer siap dibagikan:" -ForegroundColor Green

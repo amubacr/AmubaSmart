@@ -5,7 +5,7 @@
 <policyconfig>
   <vendor>DiskHealth</vendor>
 
-  <action id="id.diskhealth.read-smart">
+  <action id="id.amubasmart.read-smart">
     <description>Read SMART data from disks</description>
     <message>Autentikasi diperlukan untuk membaca data SMART disk</message>
     <icon_name>drive-harddisk</icon_name>
@@ -17,6 +17,6 @@
     </defaults>
     <!-- Hanya berlaku untuk path PERSIS ini (root-owned). Jangan pernah arahkan ke
          /usr/bin/python3 -> sama saja kasih root ke semua script python. -->
-    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/diskhealth/diskhealth-helper</annotate>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/amubasmart/amubasmart-helper</annotate>
   </action>
 </policyconfig>

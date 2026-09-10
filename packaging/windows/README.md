@@ -1,6 +1,6 @@
 # Build Installer Windows (1 file, self-contained)
 
-Hasil akhir: **`DiskHealth-Setup-0.1.0.exe`** — satu installer klik-next yang
+Hasil akhir: **`AmubaSMART-Setup-0.1.0.exe`** — satu installer klik-next yang
 sudah memuat Python runtime, PyQt6, semua Qt DLL, dan `smartctl.exe`. Mesin
 target **tidak perlu** memasang Python maupun smartmontools.
 
@@ -22,7 +22,7 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\fetch-smartmontools.p
 powershell -ExecutionPolicy Bypass -File packaging\windows\build.ps1
 ```
 
-Selesai. Installer ada di `Output\DiskHealth-Setup-0.1.0.exe`.
+Selesai. Installer ada di `Output\AmubaSMART-Setup-0.1.0.exe`.
 
 ## Kenapa onedir + Inno Setup, bukan PyInstaller `--onefile`?
 
@@ -50,8 +50,8 @@ kamu wajib:
   saat setup — sudah diatur di `.iss`), dan
 - menawarkan akses ke source code smartmontools.
 
-Aplikasi DiskHealth memanggil `smartctl.exe` sebagai **proses terpisah**
-(bukan me-link kodenya), sehingga kode DiskHealth sendiri tidak otomatis tertular
+Aplikasi AmubaSMART memanggil `smartctl.exe` sebagai **proses terpisah**
+(bukan me-link kodenya), sehingga kode AmubaSMART sendiri tidak otomatis tertular
 GPL. Tetap sertakan pemberitahuan lisensi ini pada rilis.
 
 ## Signing (opsional tapi disarankan)
@@ -59,7 +59,7 @@ GPL. Tetap sertakan pemberitahuan lisensi ini pada rilis.
 Tanpa **code signing certificate**, Windows SmartScreen akan menampilkan
 peringatan "Unknown publisher" pada installer. Untuk pemakaian di banyak PC klien,
 sebuah sertifikat (OV/EV) menghilangkan peringatan itu dan menurunkan
-false-positive AV. Tanda tangani **dua-duanya**: `dist\DiskHealth\DiskHealth.exe`
+false-positive AV. Tanda tangani **dua-duanya**: `dist\AmubaSMART\AmubaSMART.exe`
 (sebelum Inno Setup) dan `Output\...Setup.exe` (setelahnya), pakai `signtool`.
 
 ## Checklist verifikasi di mesin bersih

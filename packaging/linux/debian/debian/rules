@@ -1,0 +1,25 @@
+#!/usr/bin/make -f
+export DH_VERBOSE = 1
+
+%:
+	dh $@ --with python3
+
+# Tidak ada build; semua penempatan file lewat debian/install + override.
+override_dh_auto_build:
+override_dh_auto_install:
+	# Helper -> /usr/libexec (path yang sama dgn RPM, konsisten dgn policy polkit).
+	install -D -m 0755 amubasmart/smart_helper.py \
+	    debian/amubasmart/usr/libexec/amubasmart/amubasmart-helper
+	# Policy: samakan path helper ke /usr/libexec.
+	install -D -m 0644 packaging/id.amubasmart.helper.policy \
+	    debian/amubasmart/usr/share/polkit-1/actions/id.amubasmart.helper.policy
+	sed -i 's|/usr/local/libexec/amubasmart|/usr/libexec/amubasmart|' \
+	    debian/amubasmart/usr/share/polkit-1/actions/id.amubasmart.helper.policy
+	# Launcher CLI/GUI.
+	install -d debian/amubasmart/usr/bin
+	printf '#!/usr/bin/python3\nimport sys\nfrom amubasmart.__main__ import main\nsys.exit(main())\n' \
+	    > debian/amubasmart/usr/bin/amubasmart
+	chmod 0755 debian/amubasmart/usr/bin/amubasmart
+	# Desktop entry.
+	install -D -m 0644 packaging/amubasmart.desktop \
+	    debian/amubasmart/usr/share/applications/amubasmart.desktop

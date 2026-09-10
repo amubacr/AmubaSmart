@@ -1,0 +1,19 @@
+Source: amubasmart
+Section: admin
+Priority: optional
+Maintainer: ITSC Adil Komputer <admin@example.com>
+Build-Depends: debhelper-compat (= 13), dh-python, python3-all
+Standards-Version: 4.6.2
+Homepage: https://example.com/amubasmart
+
+Package: amubasmart
+Architecture: all
+Depends: ${python3:Depends}, ${misc:Depends},
+         python3-pyqt6,
+         smartmontools,
+         policykit-1 | polkit-1-auth-agent | polkitd,
+         util-linux
+Description: Analisa kesehatan SMART untuk SSD/HDD (GUI + CLI)
+ AmubaSMART membaca data SMART via smartctl dan menghitung skor kesehatan
+ yang transparan. Tersedia mode GUI (PyQt6/Qt6) dan CLI untuk server headless.
+ Komponen pembaca berjalan sebagai helper privileged terpisah lewat polkit.

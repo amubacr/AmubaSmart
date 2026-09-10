@@ -1,20 +1,20 @@
-; DiskHealth.iss — Inno Setup: bungkus folder onedir PyInstaller jadi SATU
-; installer klik-next (DiskHealth-Setup-x.y.z.exe).
+; AmubaSMART.iss — Inno Setup: bungkus folder onedir PyInstaller jadi SATU
+; installer klik-next (AmubaSMART-Setup-x.y.z.exe).
 ;
 ; Prasyarat build (di Windows):
-;   1. venv aktif, lalu: pyinstaller packaging\windows\DiskHealth.spec --noconfirm
-;      -> menghasilkan dist\DiskHealth\
+;   1. venv aktif, lalu: pyinstaller packaging\windows\AmubaSMART.spec --noconfirm
+;      -> menghasilkan dist\AmubaSMART\
 ;   2. Install Inno Setup 6: https://jrsoftware.org/isdl.php
-;   3. Compile file ini:  ISCC.exe packaging\windows\DiskHealth.iss
-;      -> menghasilkan Output\DiskHealth-Setup-0.1.0.exe   ← file yang dibagikan
+;   3. Compile file ini:  ISCC.exe packaging\windows\AmubaSMART.iss
+;      -> menghasilkan Output\AmubaSMART-Setup-0.1.0.exe   ← file yang dibagikan
 ;
 ; Yang di-install SUDAH lengkap: Python runtime, PyQt6, semua Qt DLL, dan
 ; smartctl.exe. Mesin target TIDAK perlu pasang apa pun lagi.
 
-#define AppName "DiskHealth"
+#define AppName "AmubaSMART"
 #define AppVersion "0.1.0"
-#define AppPublisher "DiskHealth"
-#define AppExeName "DiskHealth.exe"
+#define AppPublisher "AmubaSMART"
+#define AppExeName "AmubaSMART.exe"
 
 [Setup]
 AppId={{7C3A9F2E-4B1D-4E88-9A6C-DISKHEALTH01}}
@@ -45,7 +45,7 @@ Name: "desktopicon"; Description: "Buat shortcut di Desktop"; GroupDescription: 
 
 [Files]
 ; Seluruh isi folder onedir PyInstaller (exe + DLL + smartctl + Qt plugins).
-Source: "..\..\dist\DiskHealth\*"; DestDir: "{app}"; \
+Source: "..\..\dist\AmubaSMART\*"; DestDir: "{app}"; \
     Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]

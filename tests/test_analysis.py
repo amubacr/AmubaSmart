@@ -1,6 +1,7 @@
 """Regression test untuk kasus lapangan nyata yang pernah bikin script bash salah."""
 from __future__ import annotations
 
+import json
 import os
 import stat
 import sys
@@ -8,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-from diskhealth import smart_helper
-from diskhealth.analysis import (
+from amubasmart import smart_helper
+from amubasmart.analysis import (
     Level, analyze, ata_raw_clean, detect_type, sata_health_score, vendor_wear_pct,
 )
 
@@ -127,7 +128,7 @@ def test_bundled_smartctl_priority(tmp_path, monkeypatch):
     monkeypatch.setattr(smart_helper, "_IS_WINDOWS", True)
     monkeypatch.setattr(smart_helper.sys, "frozen", True, raising=False)
     monkeypatch.setattr(smart_helper.sys, "executable",
-                        str(tmp_path / "DiskHealth.exe"), raising=False)
+                        str(tmp_path / "AmubaSMART.exe"), raising=False)
 
     # Belum ada bundle -> None (nanti jatuh ke which()/kandidat sistem).
     assert smart_helper._bundled_smartctl() is None
@@ -142,3 +143,42 @@ def test_bundled_smartctl_priority(tmp_path, monkeypatch):
     sub.mkdir()
     (sub / "smartctl.exe").write_bytes(b"")
     assert smart_helper._bundled_smartctl() == str(sub / "smartctl.exe")
+
+
+# ---- CLI (mode teks, tanpa Qt) ----
+
+def test_cli_json_output(capsys, monkeypatch):
+    """run_cli --json harus keluarkan JSON valid tanpa menyentuh PyQt6."""
+    from amubasmart import cli
+
+    fake = analyze("/dev/sda", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 10, 0)]), True)
+    monkeypatch.setattr(cli, "_collect", lambda devices: ([fake], None))
+    rc = cli.run_cli(["--json"])
+    out = capsys.readouterr().out
+    payload = json.loads(out)
+    assert rc == 0
+    assert payload["tool"] == "AmubaSMART"
+    assert payload["disks"][0]["device"] == "/dev/sda"
+    assert payload["disks"][0]["health_percent"] == 100.0
+
+
+def test_cli_exit_code_reflects_worst(capsys, monkeypatch):
+    """Exit code: CRIT->2, WARN->1, OK->0 (buat cron/monitoring)."""
+    from amubasmart import cli
+
+    crit = analyze("/dev/sdz", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 10, 0)],
+                                    passed=False), True)
+    monkeypatch.setattr(cli, "_collect", lambda devices: ([crit], None))
+    assert cli.run_cli(["--json"]) == 2
+
+
+def test_cli_no_qt_import():
+    """amubasmart.cli TIDAK boleh menarik PyQt6 (harus jalan di server headless)."""
+    import importlib
+    import sys as _sys
+
+    for mod in [m for m in _sys.modules if m.startswith("PyQt6")]:
+        del _sys.modules[mod]
+    importlib.import_module("amubasmart.cli")
+    assert not any(m.startswith("PyQt6") for m in _sys.modules), \
+        "cli.py menarik PyQt6 — akan gagal di server tanpa Qt"
