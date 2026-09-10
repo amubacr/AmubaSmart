@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=DiskHealth
+Comment=SMART health analyzer untuk SSD/HDD
+Exec=python3 /PATH/KE/diskhealth/main.py
+Icon=drive-harddisk
+Categories=System;Monitor;
+Terminal=false

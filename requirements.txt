@@ -1,0 +1,3 @@
+# Runtime untuk venv murni (Windows / non-Fedora).
+# Di Fedora KDE: pakai paket sistem python3-pyqt6 (lihat panduan) supaya dapat style Breeze.
+PyQt6>=6.6

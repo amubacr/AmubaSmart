@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>DiskHealth</vendor>
+
+  <action id="id.diskhealth.read-smart">
+    <description>Read SMART data from disks</description>
+    <message>Autentikasi diperlukan untuk membaca data SMART disk</message>
+    <icon_name>drive-harddisk</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!-- auth_admin_keep: password di-cache ~5 menit per sesi -> refresh gak nanya terus -->
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <!-- Hanya berlaku untuk path PERSIS ini (root-owned). Jangan pernah arahkan ke
+         /usr/bin/python3 -> sama saja kasih root ke semua script python. -->
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/local/libexec/diskhealth/diskhealth-helper</annotate>
+  </action>
+</policyconfig>
