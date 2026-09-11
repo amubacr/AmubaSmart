@@ -8,4 +8,4 @@ Konvensi SemVer (MAYOR.MINOR.PATCH):
   MINOR  : fitur baru, tetap kompatibel          (0.1.x -> 0.2.0)
   MAYOR  : rilis matang / perubahan tak kompatibel (0.x -> 1.0.0)
 """
-__version__ = "0.1.1"
+__version__ = "0.2.0"

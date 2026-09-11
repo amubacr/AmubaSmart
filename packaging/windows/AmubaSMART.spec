@@ -42,8 +42,9 @@ a = Analysis(
     [str(ROOT / "main.py")],
     pathex=[str(ROOT)],
     binaries=smart_binaries,
-    datas=[],
-    hiddenimports=[],
+    # Aset logo untuk laporan PDF — ikut ke dalam bundle di amubasmart/assets/.
+    datas=[(str(ROOT / "amubasmart" / "assets"), "amubasmart/assets")],
+    hiddenimports=["reportlab.graphics.barcode.code128"],  # kadang tak terdeteksi otomatis
     hookspath=[],
     runtime_hooks=[],
     # Pangkas modul Qt yang gak dipakai -> ukuran turun ~30-40 MB & AV lebih adem.

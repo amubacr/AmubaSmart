@@ -254,3 +254,29 @@ def test_flashdrive_readonly_flagged():
     r = analyze("/dev/sdd", None, False, flashdrive=True, meta=meta)
     assert r.overall_level is Level.WARN
     assert "READ-ONLY" in r.key_metric
+
+
+# ---- Ekspor PDF (report.py) ----
+
+def test_pdf_report_generated(tmp_path):
+    """build_report menghasilkan file PDF valid dari DiskReport."""
+    from amubasmart.report import build_report
+
+    r = analyze("/dev/sda", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 50, 0)]), True)
+    out = tmp_path / "test.pdf"
+    build_report([r], str(out))
+    assert out.is_file()
+    assert out.read_bytes()[:4] == b"%PDF"    # header PDF valid
+
+
+def test_pdf_report_multiple_disks(tmp_path):
+    """PDF dengan beberapa disk (termasuk flashdrive) tidak crash."""
+    from amubasmart.report import build_report
+
+    sata = analyze("/dev/sda", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 50, 0)]), True)
+    fd = analyze("/dev/sdd", None, False, flashdrive=True,
+                 meta={"tran": "usb", "removable": True, "model": "Cruzer Blade",
+                       "size": "57,3G", "readonly": False})
+    out = tmp_path / "multi.pdf"
+    build_report([sata, fd], str(out))
+    assert out.is_file() and out.read_bytes()[:4] == b"%PDF"

@@ -4,8 +4,8 @@ from __future__ import annotations
 from PyQt6.QtCore import QEvent, Qt, QThread, QTimer, pyqtSlot
 from PyQt6.QtGui import QAction, QCloseEvent, QFont, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QHeaderView, QLabel, QMainWindow, QMessageBox, QProgressBar,
-    QTableWidget, QToolBar, QVBoxLayout, QWidget,
+    QAbstractItemView, QFileDialog, QHeaderView, QLabel, QMainWindow, QMessageBox,
+    QProgressBar, QTableWidget, QToolBar, QVBoxLayout, QWidget,
 )
 
 from .analysis import DiskReport, Level
@@ -60,6 +60,7 @@ class MainWindow(QMainWindow):
         self.act_detail = make("Lihat detail", "document-properties", "Return",
                                lambda: self.open_detail())
         toolbar.addSeparator()
+        self.act_pdf = make("Ekspor PDF", "document-save", "Ctrl+P", self.export_pdf)
         self.act_cancel = make("Batalkan scan", "process-stop", "Esc", self.cancel_scan)
 
     def _build_central(self) -> None:
@@ -307,6 +308,33 @@ class MainWindow(QMainWindow):
         device = self._selected_device()
         self.act_rescan.setEnabled(device is not None and not self._is_scanning())
         self.act_detail.setEnabled(device in self._reports)
+        # PDF butuh minimal satu hasil & tidak sedang scan.
+        self.act_pdf.setEnabled(bool(self._reports) and not self._is_scanning())
+
+    @pyqtSlot()
+    def export_pdf(self) -> None:
+        if not self._reports:
+            return
+        from datetime import datetime
+        default = f"laporan-amubasmart-{datetime.now():%Y%m%d-%H%M}.pdf"
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Simpan Laporan PDF", default, "PDF (*.pdf)")
+        if not path:
+            return  # user batal
+        if not path.lower().endswith(".pdf"):
+            path += ".pdf"
+        # Urutkan sesuai tampilan tabel (by device).
+        reports = [self._reports[d] for d in sorted(self._reports)]
+        try:
+            from .report import ReportError, build_report
+            build_report(reports, path)
+        except ReportError as exc:
+            QMessageBox.warning(self, "Ekspor PDF gagal", str(exc))
+            return
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Ekspor PDF gagal", f"Kesalahan tak terduga: {exc}")
+            return
+        self.status_label.setText(f"Laporan disimpan: {path}")
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802 (API Qt)
         if self._thread is not None and self._worker is not None:

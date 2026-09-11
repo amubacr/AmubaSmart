@@ -159,6 +159,8 @@ def run_cli(argv: list[str]) -> int:
                         help="output JSON (buat scripting/monitoring)")
     parser.add_argument("--detail", action="store_true", help="tampilkan detail lengkap tiap disk")
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto")
+    parser.add_argument("--pdf", metavar="FILE",
+                        help="ekspor laporan teknis ke file PDF (mis. --pdf laporan.pdf)")
     parser.add_argument("-V", "--version", action="version", version=f"AmubaSMART {__version__}")
     args = parser.parse_args(argv)
 
@@ -170,7 +172,15 @@ def run_cli(argv: list[str]) -> int:
         print("Gak ada disk yang kebaca.", file=sys.stderr)
         return 1
 
-    if args.json:
+    if args.pdf:
+        try:
+            from .report import ReportError, build_report
+            build_report(reports, args.pdf)
+            print(f"Laporan PDF disimpan: {args.pdf}")
+        except ReportError as exc:
+            print(f"Ekspor PDF gagal: {exc}", file=sys.stderr)
+            return 3
+    elif args.json:
         print(_to_json(reports))
     else:
         color = _use_color(sys.stdout, args.color)

@@ -38,6 +38,7 @@ BuildRequires:  python3-devel
 # Dependency runtime — dnf akan menariknya otomatis saat install:
 Requires:       python3
 Requires:       python3-pyqt6
+Requires:       python3-reportlab
 Requires:       smartmontools
 Requires:       polkit
 # lsblk (enumerasi disk) berasal dari util-linux (hampir selalu sudah ada).
@@ -60,6 +61,9 @@ polkit (pkexec) — GUI sendiri berjalan sebagai user biasa.
 # --- Kode aplikasi -> /usr/lib/python.../site-packages/amubasmart ---
 install -d %{buildroot}%{python3_sitelib}/amubasmart
 cp -a amubasmart/*.py %{buildroot}%{python3_sitelib}/amubasmart/
+# Aset (logo PDF) — ikut terpasang supaya laporan PDF punya kop.
+install -d %{buildroot}%{python3_sitelib}/amubasmart/assets
+cp -a amubasmart/assets/* %{buildroot}%{python3_sitelib}/amubasmart/assets/
 
 # --- Helper privileged (root-owned) -> /usr/libexec/amubasmart/ ---
 # Beda dari install-helper.sh manual yang pakai /usr/local: paket RPM WAJIB
@@ -100,6 +104,12 @@ install -D -m 0644 packaging/amubasmart.desktop \
 %{_datadir}/applications/amubasmart.desktop
 
 %changelog
+* Thu Sep 11 2025 ITSC Adil Komputer <admin@example.com> - 0.2.0-1
+- Fitur baru: ekspor laporan teknis ke PDF (tombol GUI + opsi --pdf di CLI),
+  dengan kop logo, badge status berwarna, dan tabel atribut lengkap per disk
+- Deteksi flashdisk (USB removable) -> label netral, bukan alarm GAGAL
+- Auto-retry flag -d untuk drive di balik USB bridge (dock NVMe JMicron dll)
+
 * Thu Sep 11 2025 ITSC Adil Komputer <admin@example.com> - 0.1.1-1
 - Perbaikan skor health: attribute non-keausan (suhu, error-rate, performa) tidak
   lagi menyeret skor (kasus ADATA SU650: 51%% -> 88%%, sejalan CDI/HD Sentinel)
