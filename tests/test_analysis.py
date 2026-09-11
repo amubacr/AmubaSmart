@@ -280,3 +280,33 @@ def test_pdf_report_multiple_disks(tmp_path):
     out = tmp_path / "multi.pdf"
     build_report([sata, fd], str(out))
     assert out.is_file() and out.read_bytes()[:4] == b"%PDF"
+
+
+# ---- CRC error di-cap WARN (kasus Samsung 850 EVO) ----
+
+def test_crc_error_capped_at_warn():
+    """CRC tinggi (ID 199) -> WARN, TIDAK pernah CRIT (masalah kabel, bukan disk).
+
+    Kasus nyata Samsung 850 EVO: CRC=161, 0 realloc, health 97% -> harus WARN.
+    Sebelum fix, CRC>=50 memicu CRIT (badge KRITIS keliru).
+    """
+    attrs = [_attr(5, "Reallocated_Sector_Ct", 100, 10, 0),      # 0 bad sector
+             _attr(199, "UDMA_CRC_Error_Count", 99, 0, 161)]      # CRC tinggi
+    r = analyze("/dev/sdc", _ata(attrs), True)
+    assert Level.CRIT not in r.indicator_levels, "CRC seharusnya tak memicu CRIT"
+    assert r.overall_level is Level.WARN
+
+
+def test_real_bad_sector_still_crit():
+    """Bad sector nyata (realloc >= crit) tetap CRIT — jangan sampai ikut ter-cap."""
+    attrs = [_attr(5, "Reallocated_Sector_Ct", 99, 36, 48)]       # 48 bad sector
+    r = analyze("/dev/sdd", _ata(attrs), True)
+    assert r.overall_level is Level.CRIT
+
+
+def test_attribute_table_no_scientific_notation_column():
+    """Kolom 'Raw Value' (notasi ilmiah) dibuang; 'Raw' pakai string akurat."""
+    attrs = [_attr(9, "Power_On_Hours", 82, 0, 16272)]
+    r = analyze("/dev/sdd", _ata(attrs), True)
+    assert r.attributes.headers == ["ID", "Atribut", "Normalized", "Worst",
+                                     "Thresh", "Raw", "Tipe"]

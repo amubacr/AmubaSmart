@@ -107,6 +107,8 @@ install -D -m 0644 packaging/amubasmart.desktop \
 * Thu Sep 11 2025 ITSC Adil Komputer <admin@example.com> - 0.2.0-1
 - Fitur baru: ekspor laporan teknis ke PDF (tombol GUI + opsi --pdf di CLI),
   dengan kop logo, badge status berwarna, dan tabel atribut lengkap per disk
+- CRC error (ID 199) di-cap WARN, tak lagi memicu KRITIS keliru (masalah kabel)
+- PDF: kolom Raw dirapikan (buang notasi ilmiah yang bertabrakan)
 - Deteksi flashdisk (USB removable) -> label netral, bukan alarm GAGAL
 - Auto-retry flag -d untuk drive di balik USB bridge (dock NVMe JMicron dll)
 

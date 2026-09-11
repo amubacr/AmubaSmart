@@ -334,6 +334,20 @@ def level_for_count(value: float, warn: float, crit: float) -> Level:
     return Level.OK
 
 
+def level_for_ata_attr(attr_id: int | None, raw: float,
+                       th: Thresholds = DEFAULT_THRESHOLDS) -> Level:
+    """Level untuk satu attribute ATA kritis, dgn aturan khusus per-ID.
+
+    CRC (ID 199) DI-CAP maksimal WARN, tak pernah CRIT: CRC error hampir selalu
+    dari kabel/konektor SATA longgar, BUKAN kerusakan drive. Memvonis KRITIS bisa
+    bikin drive sehat (0 bad sector) diganti percuma — cukup ganti kabel.
+    Kasus nyata: Samsung 850 EVO, CRC=161, 0 realloc, health 97% -> harusnya SEHAT.
+    """
+    if attr_id == CRC_ATTR_ID:
+        return Level.WARN if raw >= th.crc_warn else Level.OK
+    return level_for_count(raw, th.ata_raw_warn, th.ata_raw_crit)
+
+
 # =============================================================================
 # Model hasil untuk UI
 # =============================================================================
@@ -632,9 +646,7 @@ def _analyze_sata(r: DiskReport, data: JsonDict, th: Thresholds) -> None:
             rows.append(DetailRow(f"ID {attr_id}", "tidak ada di drive ini", Level.WARN))
             continue
         raw = ata_raw_clean(attr) or 0
-        warn, crit = ((th.crc_warn, th.crc_crit) if attr_id == CRC_ATTR_ID
-                      else (th.ata_raw_warn, th.ata_raw_crit))
-        lvl = level_for_count(raw, warn, crit)
+        lvl = level_for_ata_attr(attr_id, raw, th)
         r.indicator_levels.append(lvl)
         rows.append(DetailRow(
             f"ID {attr_id} {attr.get('name', 'Unknown')}",
@@ -650,8 +662,11 @@ def _analyze_sata(r: DiskReport, data: JsonDict, th: Thresholds) -> None:
 
 
 def _ata_attribute_table(data: JsonDict, th: Thresholds, r: DiskReport) -> AttributeTable:
+    # Kolom "Raw Value" (notasi ilmiah, mis. 4.5e+09) DIBUANG — redundan &
+    # bertabrakan di PDF. "Raw" memakai .raw.string smartctl yang sudah akurat
+    # (angka penuh, plus format tambahan Seagate spt "16272 (87 154 0)").
     table = AttributeTable(["ID", "Atribut", "Normalized", "Worst", "Thresh",
-                            "Raw Value", "Raw (smartctl)", "Tipe"])
+                            "Raw", "Tipe"])
     for attr in ata_table(data):
         attr_id = attr.get("id")
         raw = ata_raw_clean(attr)
@@ -666,17 +681,18 @@ def _ata_attribute_table(data: JsonDict, th: Thresholds, r: DiskReport) -> Attri
         if lvl is not Level.NA:
             r.indicator_levels.append(lvl)
         if attr_id in CRITICAL_ATA_IDS and raw is not None:
-            warn, crit = ((th.crc_warn, th.crc_crit) if attr_id == CRC_ATTR_ID
-                          else (th.ata_raw_warn, th.ata_raw_crit))
-            lvl = max(lvl, level_for_count(raw, warn, crit))
+            lvl = max(lvl, level_for_ata_attr(attr_id, raw, th))
         prefail = _get(attr, "flags", "prefailure")
         kind = "Pre-fail" if prefail is True else "Old_age" if prefail is False else "-"
-        table.rows.append(([
+        # Raw: pakai .raw.string (angka penuh); fallback ke raw bersih; lalu "-".
+        raw_str = _get(attr, "raw", "string")
+        raw_display = str(raw_str) if raw_str not in (None, "") else _fmt(raw)
+        cells = [
             str(attr_id), str(attr.get("name", "Unknown")),
             _fmt(_num(attr.get("value"))), _fmt(_num(attr.get("worst"))),
-            _fmt(_num(attr.get("thresh"))), _fmt(raw),
-            str(_get(attr, "raw", "string", default="-")), kind,
-        ], lvl))
+            _fmt(_num(attr.get("thresh"))), raw_display, kind,
+        ]
+        table.rows.append((cells, lvl))
     return table
 
 
