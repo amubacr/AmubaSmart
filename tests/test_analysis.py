@@ -355,3 +355,31 @@ def test_history_fifo_limit(tmp_path, monkeypatch):
     snaps = h.history_for("SN-X")
     assert len(snaps) == 3                            # cuma 3 terbaru
     assert snaps[0].realloc == 5                      # terbaru (i=5)
+
+
+# ---- Opsi A: Unknown_Attribute dikecualikan dari health (kasus HUH728080) ----
+
+def test_unknown_attribute_excluded_from_health():
+    """Attribute vendor tak dikenal (Unknown_Attribute) tak menyeret skor.
+
+    HGST HUH728080: ID 45 Unknown_Attribute value=50/thresh=1 -> margin 49.5%.
+    Setelah fix, attribute keausan ASLI (semua sehat) yang menentukan -> ~100%.
+    """
+    attrs = [
+        _attr(5, "Reallocated_Sector_Ct", 100, 5, 0),
+        _attr(45, "Unknown_Attribute", 50, 1, 4311679231),   # tak dikenal -> abaikan
+        _attr(22, "Helium_Level", 100, 25, 100),
+    ]
+    r = analyze("/dev/sda", _ata(attrs), True)
+    assert r.health == 100.0
+    assert r.overall_level is Level.OK
+
+
+def test_known_wear_attribute_still_counts():
+    """Attribute keausan yang DIKENAL (mis. Helium_Level) tetap dihitung."""
+    attrs = [
+        _attr(5, "Reallocated_Sector_Ct", 100, 5, 0),
+        _attr(22, "Helium_Level", 30, 25, 0),                # He bocor - masalah nyata
+    ]
+    r = analyze("/dev/sda", _ata(attrs), True)
+    assert r.health is not None and r.health < 20    # margin (30-25)/(100-25) = 6.7%

@@ -249,11 +249,18 @@ def _is_wear_relevant(attr: JsonDict) -> bool:
     """Attribute ini boleh ikut menentukan skor health?
 
     Buang yang jelas BUKAN indikator keausan (suhu, error-rate, performa) —
-    lihat NON_WEAR_ATTR_IDS. Dicek by ID dulu, lalu by nama sebagai jaring kedua.
+    lihat NON_WEAR_ATTR_IDS. Juga buang attribute vendor yang smartctl SENDIRI
+    tak kenal ("Unknown_Attribute"): kalau artinya tak diketahui, marginnya tak
+    bisa ditafsirkan sebagai "kesehatan" — memasukkannya = menebak.
+    Kasus nyata: HGST HUH728080, ID 45 (Unknown_Attribute) value=50/thresh=1
+    menyeret skor ke 49.5% padahal 0 bad sector.
     """
     if attr.get("id") in NON_WEAR_ATTR_IDS:
         return False
-    return attr.get("name") not in NON_WEAR_ATTR_NAMES
+    name = str(attr.get("name", ""))
+    if name.startswith("Unknown"):   # Unknown_Attribute, Unknown_HDD_Attribute, dll
+        return False
+    return name not in NON_WEAR_ATTR_NAMES
 
 
 def sata_health_score(data: JsonDict) -> float | None:

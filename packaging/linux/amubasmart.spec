@@ -111,6 +111,8 @@ install -D -m 0644 packaging/amubasmart.desktop \
 - PDF: kolom Raw dirapikan (buang notasi ilmiah yang bertabrakan)
 - Riwayat scan otomatis (SQLite per serial): lacak pergerakan health, realloc,
   CRC, suhu antar waktu; dialog Riwayat (Ctrl+H) menampilkan tren per drive
+- Health: attribute vendor tak dikenal (Unknown_Attribute) tak lagi menyeret
+  skor keliru (HGST HUH728080: 49.5% -> 100%)
 - Deteksi flashdisk (USB removable) -> label netral, bukan alarm GAGAL
 - Auto-retry flag -d untuk drive di balik USB bridge (dock NVMe JMicron dll)
 
