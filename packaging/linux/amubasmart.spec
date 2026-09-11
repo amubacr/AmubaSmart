@@ -80,8 +80,10 @@ chmod 0755 %{buildroot}%{_bindir}/amubasmart
 # --- Policy polkit (path helper disesuaikan ke /usr/libexec) ---
 install -D -m 0644 packaging/id.amubasmart.helper.policy \
     %{buildroot}%{_datadir}/polkit-1/actions/id.amubasmart.helper.policy
-# Ganti path /usr/local/libexec (default file dev) -> /usr/libexec (lokasi RPM).
-sed -i 's|/usr/local/libexec/amubasmart|%{_libexecdir}/amubasmart|' \
+# Policy source sudah menunjuk /usr/libexec. sed ini jaring pengaman: kalau
+# %{_libexecdir} di suatu distro bukan /usr/libexec (mis. /usr/lib), path di
+# annotate ikut disesuaikan supaya tetap COCOK dgn helper -> cache polkit jalan.
+sed -i 's|/usr/libexec/amubasmart|%{_libexecdir}/amubasmart|' \
     %{buildroot}%{_datadir}/polkit-1/actions/id.amubasmart.helper.policy
 
 # --- Desktop entry & metadata ---
