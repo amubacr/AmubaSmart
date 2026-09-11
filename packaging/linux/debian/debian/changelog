@@ -1,3 +1,12 @@
+amubasmart (0.1.1-1) unstable; urgency=medium
+
+  * Perbaikan skor health: attribute non-keausan (suhu, error-rate, performa)
+    tidak lagi menyeret skor (ADATA SU650: 51% -> 88%, sejalan CDI/HD Sentinel).
+  * Skip ZFS zvol (zd*) dari enumerasi disk.
+  * Sistem versi satu-sumber (amubasmart/__init__.py).
+
+ -- ITSC Adil Komputer <admin@example.com>  Thu, 11 Sep 2025 00:00:00 +0000
+
 amubasmart (0.1.0-1) unstable; urgency=medium
 
   * Rilis awal: GUI PyQt6 + CLI headless, helper polkit, skor kesehatan transparan.

@@ -75,7 +75,8 @@ def _collect(devices: list[str]) -> tuple[list[DiskReport], str | None]:
         kind = msg.get("type")
         if kind == "result":
             reports.append(analyze(str(msg.get("device", "?")), msg.get("data"),
-                                   bool(msg.get("ok")), msg.get("error"), DEFAULT_THRESHOLDS))
+                                   bool(msg.get("ok")), msg.get("error"), DEFAULT_THRESHOLDS,
+                                   flashdrive=bool(msg.get("flashdrive")), meta=msg.get("meta")))
         elif kind == "fatal":
             fatal = str(msg.get("error", "helper error"))
     proc.wait()
@@ -95,12 +96,14 @@ def _print_table(reports: list[DiskReport], color: bool, out: TextIO) -> None:
     for r in sorted(reports, key=lambda x: x.device):
         # Warnai STATUS & HEALTH sesuai levelnya; padding SEBELUM diwarnai supaya
         # kode ANSI tidak ikut terhitung sebagai lebar kolom (bug klasik di bash).
+        # FD: read_ok=False tapi punya model/kapasitas -> tetap tampilkan.
+        has_info = r.read_ok or r.dtype == "flashdrive"
         status = f"{r.status:<8}"
-        health = f"{(r.health_text if r.read_ok else '-'):<8}"
+        health = f"{(r.health_text if has_info else '-'):<8}"
         cells = [
             f"{r.device:<13}",
-            f"{(r.model[:22] if r.read_ok else '-'):<22}",
-            f"{(r.protocol_label if r.read_ok else '-'):<6}",
+            f"{(r.model[:22] if has_info else '-'):<22}",
+            f"{(r.protocol_label if has_info else '-'):<6}",
             f"{(r.temperature_text if r.read_ok else '-'):<7}",
             _paint(status, r.status_level, color),
             _paint(health, r.health_level, color),

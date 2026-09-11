@@ -54,6 +54,23 @@ Aplikasi AmubaSMART memanggil `smartctl.exe` sebagai **proses terpisah**
 (bukan me-link kodenya), sehingga kode AmubaSMART sendiri tidak otomatis tertular
 GPL. Tetap sertakan pemberitahuan lisensi ini pada rilis.
 
+## Fix di `.py` tidak muncul di `.exe`? (cache PyInstaller)
+
+Kalau kamu mengubah source lalu rebuild tapi `.exe` masih pakai perilaku lama,
+biang keroknya folder **`build\`** — cache bytecode PyInstaller. Menghapus `dist\`
+saja tidak cukup. `build.ps1` sekarang otomatis menghapus `build\` dan `dist\`
+serta memakai `--clean`, tapi kalau build manual, lakukan sendiri:
+
+```powershell
+Remove-Item -Recurse -Force build, dist -ErrorAction SilentlyContinue
+pyinstaller packaging\windows\AmubaSMART.spec --noconfirm --clean
+```
+
+Dan **selalu uninstall versi lama** (Add/Remove Programs) sebelum memasang
+installer baru — file lama tidak selalu tertimpa bersih. Cara cepat memastikan
+versi yang jalan: `amubasmart --cli` lalu lihat angkanya, atau `AmubaSMART.exe
+--version`.
+
 ## Signing (opsional tapi disarankan)
 
 Tanpa **code signing certificate**, Windows SmartScreen akan menampilkan

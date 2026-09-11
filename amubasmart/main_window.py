@@ -231,12 +231,14 @@ class MainWindow(QMainWindow):
             self._set_item(row, col, text, key, device)
 
     def _fill_row(self, row: int, r: DiskReport) -> None:
-        ok = r.read_ok  # baris gagal baca: jangan tampilkan "?"/"N/A" yang menyesatkan
+        # baris gagal baca: jangan tampilkan "?"/"N/A" yang menyesatkan.
+        # FD: read_ok=False tapi punya model/kapasitas -> tetap tampilkan labelnya.
+        ok = r.read_ok or r.dtype == "flashdrive"
         cells = (
             (r.device, r.device),
             (r.model, r.model.lower()),
             (r.protocol_label if ok else "-", r.protocol_label if ok else ""),
-            (r.temperature_text if ok else "-",
+            (r.temperature_text if r.read_ok else "-",
              float(r.temperature) if r.temperature is not None else -1.0),
             (r.status, int(r.status_level)),
             (r.health_text, float(r.health) if r.health is not None else -1.0),

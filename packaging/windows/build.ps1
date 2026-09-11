@@ -24,8 +24,21 @@ Write-Host "== 2/4  Test cepat ==" -ForegroundColor Cyan
 python -m pytest -q
 
 Write-Host "== 3/4  PyInstaller (onedir) ==" -ForegroundColor Cyan
-if (Test-Path "dist\AmubaSMART") { Remove-Item -Recurse -Force "dist\AmubaSMART" }
-pyinstaller packaging\windows\AmubaSMART.spec --noconfirm
+# PENTING: hapus dist\ DAN build\. Folder build\ berisi cache bytecode
+# PyInstaller — kalau tidak dihapus, rebuild bisa memakai kode LAMA walau
+# source sudah berubah (jebakan klasik: fix di .py tak muncul di .exe).
+# Flag --clean jadi jaring pengaman kedua.
+foreach ($dir in @("dist\AmubaSMART", "build")) {
+    if (Test-Path $dir) { Remove-Item -Recurse -Force $dir }
+}
+pyinstaller packaging\windows\AmubaSMART.spec --noconfirm --clean
+
+# Sanity check: pastikan exe hasil build menjalankan kode TERBARU, bukan cache.
+# --version cepat & tak butuh disk fisik; kalau exe gagal jalan, hentikan di sini
+# daripada terlanjur membungkus installer yang rusak.
+Write-Host "Verifikasi exe..." -ForegroundColor Cyan
+& "dist\AmubaSMART\AmubaSMART.exe" --version
+if ($LASTEXITCODE -ne 0) { throw "AmubaSMART.exe gagal dijalankan (exit $LASTEXITCODE)." }
 
 Write-Host "== 4/4  Inno Setup (bungkus jadi 1 installer) ==" -ForegroundColor Cyan
 $iscc = @(

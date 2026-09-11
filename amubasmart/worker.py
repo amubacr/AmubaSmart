@@ -125,7 +125,8 @@ class ScanWorker(QObject):
             elif kind == "result":
                 got_result = True
                 report = analyze(str(msg.get("device", "?")), msg.get("data"),
-                                 bool(msg.get("ok")), msg.get("error"), self._thresholds)
+                                 bool(msg.get("ok")), msg.get("error"), self._thresholds,
+                                 flashdrive=bool(msg.get("flashdrive")), meta=msg.get("meta"))
                 self.disk_ready.emit(report)
             elif kind == "fatal":
                 fatal_seen = True

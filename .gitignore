@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Virtual env
+.venv/
+venv/
+
+# Build artifacts — JANGAN commit; di-generate tiap build
+build/
+dist/
+Output/
+*.rpm
+*.deb
+*.exe
+# folder bundle smartctl (diambil via fetch-smartmontools.ps1, binary GPL)
+packaging/windows/smartmontools/
+packaging/windows/*.ico
+
+# OS/editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+amubasmart.bak/

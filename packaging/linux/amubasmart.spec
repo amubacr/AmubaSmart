@@ -17,7 +17,10 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")}
 
 Name:           amubasmart
-Version:        0.1.0
+# Versi di-inject build-rpm.sh via --define "ver X.Y.Z" (dibaca dari
+# amubasmart/__init__.py, satu sumber kebenaran). Fallback kalau dibuild manual.
+%{!?ver: %global ver 0.0.0}
+Version:        %{ver}
 Release:        1%{?dist}
 Summary:        Analisa kesehatan SMART untuk SSD/HDD (GUI + CLI)
 
@@ -94,5 +97,11 @@ install -D -m 0644 packaging/amubasmart.desktop \
 %{_datadir}/applications/amubasmart.desktop
 
 %changelog
+* Thu Sep 11 2025 ITSC Adil Komputer <admin@example.com> - 0.1.1-1
+- Perbaikan skor health: attribute non-keausan (suhu, error-rate, performa) tidak
+  lagi menyeret skor (kasus ADATA SU650: 51%% -> 88%%, sejalan CDI/HD Sentinel)
+- Skip ZFS zvol (zd*) dari enumerasi disk
+- Sistem versi satu-sumber; build script baca versi dari amubasmart/__init__.py
+
 * Wed Sep 10 2025 ITSC Adil Komputer <admin@example.com> - 0.1.0-1
 - Rilis awal: GUI PyQt6 + CLI headless, helper polkit, skor kesehatan transparan

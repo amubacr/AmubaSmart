@@ -3,7 +3,7 @@
 #   ./packaging/linux/build-rpm.sh
 set -euo pipefail
 
-VERSION=0.1.0
+VERSION="$(python3 "$(dirname "$0")/../get-version.py")"
 NAME=amubasmart
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TOPDIR="${HOME}/rpmbuild"
@@ -29,7 +29,7 @@ tar -C "$tmp" -czf "$TARBALL" "${NAME}-${VERSION}"
 rm -rf "$tmp"
 
 cp "$ROOT/packaging/linux/${NAME}.spec" "${TOPDIR}/SPECS/"
-rpmbuild -ba "${TOPDIR}/SPECS/${NAME}.spec"
+rpmbuild -ba --define "ver ${VERSION}" "${TOPDIR}/SPECS/${NAME}.spec"
 
 echo ""
 echo "RPM siap:"

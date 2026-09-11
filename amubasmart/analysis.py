@@ -50,13 +50,40 @@ DEFAULT_THRESHOLDS = Thresholds()
 
 CRITICAL_ATA_IDS: tuple[int, ...] = (5, 187, 197, 198, 199)
 CRC_ATTR_ID = 199
+
+# Attribute Pre-fail yang normalized VALUE-nya BUKAN cerminan sisa umur, jadi
+# DIKELUARKAN dari sata_health_score(). Kalau ikut dihitung, mereka menyeret skor
+# secara keliru — kasus nyata ADATA SU650: Temperature (C2, thresh=30) bikin skor
+# 51.4% padahal 0 bad sector; CrystalDiskInfo & HD Sentinel bilang 89-100%.
+#
+# Kategori yang dibuang: sensor suhu, statistik error-rate mentah, dan metrik
+# performa. Semuanya pakai skala normalized yang mencerminkan kondisi OPERASIONAL
+# sesaat, bukan keausan NAND/mekanis. Dicocokkan by ID (stabil lintas vendor untuk
+# ID standar ini) DAN by nama (jaga-jaga bila ID meleset).
+NON_WEAR_ATTR_IDS: frozenset[int] = frozenset({
+    1,    # Raw_Read_Error_Rate  — statistik error, fluktuatif (Seagate dst)
+    2,    # Throughput_Performance
+    3,    # Spin_Up_Time
+    7,    # Seek_Error_Rate
+    8,    # Seek_Time_Performance
+    190,  # Airflow_Temperature_Cel  — suhu
+    194,  # Temperature_Celsius      — suhu
+    201,  # Soft_Read_Error_Rate
+    220,  # Disk_Shift
+})
+NON_WEAR_ATTR_NAMES: frozenset[str] = frozenset({
+    "Temperature_Celsius", "Airflow_Temperature_Cel", "Temperature",
+    "Raw_Read_Error_Rate", "Seek_Error_Rate", "Throughput_Performance",
+    "Seek_Time_Performance", "Spin_Up_Time", "Soft_Read_Error_Rate",
+})
 WEAR_NAMES: tuple[str, ...] = (
     "Wear_Leveling_Count", "Media_Wearout_Indicator", "SSD_Life_Left",
     "Percent_Lifetime_Remain", "Remaining_Lifetime_Perc",
 )
 INVERTED_WEAR_NAMES: tuple[str, ...] = ("Perc_Rated_Life_Used",)  # VALUE naik = makin aus
 
-PROTOCOL_LABELS = {"nvme": "NVMe", "sata": "SATA/ATA", "sas": "SAS/SCSI", "unknown": "?"}
+PROTOCOL_LABELS = {"nvme": "NVMe", "sata": "SATA/ATA", "sas": "SAS/SCSI",
+                   "flashdrive": "Flashdisk", "unknown": "?"}
 
 _RAW_LEADING_INT = re.compile(r"^([0-9]+)")
 
@@ -218,15 +245,30 @@ def nvme_health_score(data: JsonDict) -> float | None:
     return max(0, 100 - used)  # percentage_used boleh > 100 (spec: sampai 255)
 
 
+def _is_wear_relevant(attr: JsonDict) -> bool:
+    """Attribute ini boleh ikut menentukan skor health?
+
+    Buang yang jelas BUKAN indikator keausan (suhu, error-rate, performa) —
+    lihat NON_WEAR_ATTR_IDS. Dicek by ID dulu, lalu by nama sebagai jaring kedua.
+    """
+    if attr.get("id") in NON_WEAR_ATTR_IDS:
+        return False
+    return attr.get("name") not in NON_WEAR_ATTR_NAMES
+
+
 def sata_health_score(data: JsonDict) -> float | None:
     """bash: sata_health_score() — margin attribute paling mepet ke threshold-nya.
 
-    (value - thresh) / (100 - thresh) * 100, hanya attribute 0 < thresh < 100.
+    (value - thresh) / (100 - thresh) * 100, hanya attribute keausan dengan
+    0 < thresh < 100. Attribute non-keausan (suhu, error-rate, performa)
+    dikecualikan lewat _is_wear_relevant() — lihat catatan di NON_WEAR_ATTR_IDS.
     """
     margins: list[float] = []
     for attr in ata_table(data):
         value, thresh = _num(attr.get("value")), _num(attr.get("thresh"))
         if value is None or thresh is None or not 0 < thresh < 100:
+            continue
+        if not _is_wear_relevant(attr):
             continue
         margins.append((value - thresh) / (100 - thresh) * 100)
     if not margins:
@@ -346,9 +388,46 @@ class DiskReport:
 # Entry point analisa
 # =============================================================================
 
+def _analyze_flashdrive(device: str, meta: JsonDict | None) -> DiskReport:
+    """Flashdisk/kartu SD: tak punya SMART. Bukan error — labeli netral + info lsblk.
+
+    Yang BISA ditampilkan tanpa SMART: kapasitas, model, status read-only.
+    Read-only mendadak pada FD sering gejala controller mulai mati.
+    """
+    meta = meta or {}
+    readonly = bool(meta.get("readonly"))
+    details = [
+        DetailRow("Tipe", "Flashdisk / USB removable"),
+        DetailRow("Model", str(meta.get("model") or "Unknown")),
+        DetailRow("Kapasitas", str(meta.get("size") or "?")),
+        DetailRow("Mode",
+                  "READ-ONLY (waspada: bisa gejala controller sekarat)" if readonly
+                  else "Read-write (normal)",
+                  Level.WARN if readonly else Level.OK),
+        DetailRow("SMART", "Tidak didukung — flashdisk tak punya controller SMART. "
+                  "Untuk uji 'masih waras', lakukan tes tulis-baca, bukan SMART.",
+                  Level.NA),
+    ]
+    return DiskReport(
+        device=device, read_ok=False, dtype="flashdrive",
+        model=str(meta.get("model") or "Flashdisk"),
+        status="—", status_level=Level.NA,
+        health_text="N/A", health_level=Level.NA,
+        key_metric="Flashdisk (tanpa SMART)"
+                   + ("  READ-ONLY!" if readonly else ""),
+        diagnosis="Flashdisk/USB removable tidak mendukung SMART (normal).",
+        details=details,
+        # READ-ONLY layak jadi kuning (indikasi mungkin sekarat); selain itu netral.
+        overall_level=Level.WARN if readonly else Level.NA,
+    )
+
+
 def analyze(device: str, data: JsonDict | None, read_ok: bool, error: str | None = None,
-            th: Thresholds = DEFAULT_THRESHOLDS) -> DiskReport:
+            th: Thresholds = DEFAULT_THRESHOLDS,
+            flashdrive: bool = False, meta: JsonDict | None = None) -> DiskReport:
     """Satu disk: JSON smartctl -> DiskReport siap tampil."""
+    if flashdrive:
+        return _analyze_flashdrive(device, meta)
     if not read_ok or not isinstance(data, dict):
         diag = smart_read_diagnosis(data, error)
         return DiskReport(
@@ -375,6 +454,12 @@ def analyze(device: str, data: JsonDict | None, read_ok: bool, error: str | None
     builder = {"nvme": _analyze_nvme, "sata": _analyze_sata, "sas": _analyze_sas}.get(
         dtype, _analyze_unknown)
     builder(report, data, th)
+    # Kalau drive kebaca lewat flag -d USB bridge, catat di detail (info buat teknisi:
+    # drive ini di dock/casing, bukan koneksi langsung).
+    bridge = _get(data, "amubasmart", "usb_bridge_dtype")
+    if bridge:
+        report.details.append(
+            DetailRow("Koneksi", f"USB bridge (terbaca via -d {bridge})", Level.NA))
     report.overall_level = _overall_level(report)
     return report
 
