@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         self._thread: QThread | None = None
         self._worker: ScanWorker | None = None
         self._cancelled = False
+        self._history: object | None = None      # lazy-init History saat scan pertama
 
         self._build_actions()
         self._build_central()
@@ -60,6 +61,7 @@ class MainWindow(QMainWindow):
         self.act_detail = make("Lihat detail", "document-properties", "Return",
                                lambda: self.open_detail())
         toolbar.addSeparator()
+        self.act_history = make("Riwayat", "view-history", "Ctrl+H", self.open_history)
         self.act_pdf = make("Ekspor PDF", "document-save", "Ctrl+P", self.export_pdf)
         self.act_cancel = make("Batalkan scan", "process-stop", "Esc", self.cancel_scan)
 
@@ -195,10 +197,23 @@ class MainWindow(QMainWindow):
             self._thread.deleteLater()
         self._thread = self._worker = None
         self._set_busy(False)
+        # Auto-catat ke riwayat (kecuali scan dibatalkan). Kegagalan riwayat tak
+        # boleh mengganggu scan — dibungkus, cukup log ke status kalau perlu.
+        if not self._cancelled and self._reports:
+            self._record_history()
         if self._cancelled:
             self.status_label.setText("Scan dibatalkan.")
         elif self.status_label.text().startswith(("Membaca", "Menunggu")):
             self.status_label.setText(f"Selesai — {len(self._reports)} disk.")
+
+    def _record_history(self) -> None:
+        try:
+            from .history import History
+            if self._history is None:
+                self._history = History()
+            self._history.record_all(list(self._reports.values()))
+        except Exception:  # noqa: BLE001 — riwayat best-effort, jangan ganggu scan
+            pass
 
     # ============================================================= table ops
 
@@ -310,6 +325,20 @@ class MainWindow(QMainWindow):
         self.act_detail.setEnabled(device in self._reports)
         # PDF butuh minimal satu hasil & tidak sedang scan.
         self.act_pdf.setEnabled(bool(self._reports) and not self._is_scanning())
+
+    @pyqtSlot()
+    def open_history(self) -> None:
+        try:
+            from .history import History
+            from .history_dialog import HistoryDialog
+            if self._history is None:
+                self._history = History()
+            dialog = HistoryDialog(self._history, self)
+        except Exception as exc:  # noqa: BLE001
+            QMessageBox.warning(self, "Riwayat gagal dibuka", f"Kesalahan: {exc}")
+            return
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.show()
 
     @pyqtSlot()
     def export_pdf(self) -> None:

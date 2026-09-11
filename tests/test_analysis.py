@@ -310,3 +310,48 @@ def test_attribute_table_no_scientific_notation_column():
     r = analyze("/dev/sdd", _ata(attrs), True)
     assert r.attributes.headers == ["ID", "Atribut", "Normalized", "Worst",
                                      "Thresh", "Raw", "Tipe"]
+
+
+# ---- Riwayat scan (history.py) ----
+
+def test_history_records_and_tracks_trend(tmp_path):
+    """Riwayat mencatat & melacak pergerakan metrik per serial."""
+    from datetime import datetime, timedelta, timezone
+    from amubasmart.history import History
+
+    h = History(tmp_path / "h.db")
+    base = datetime(2026, 7, 1, tzinfo=timezone.utc)
+    for i, rc in enumerate([0, 5, 12]):
+        data = _ata([_attr(5, "Reallocated_Sector_Ct", 100 - rc, 36, rc)])
+        data["serial_number"] = "SN-TEST"
+        h.record(analyze("/dev/sda", data, True), scanned_at=base + timedelta(days=i))
+    assert len(h.drives()) == 1
+    assert h.delta("SN-TEST", "realloc") == 12       # naik = memburuk
+    assert len(h.history_for("SN-TEST")) == 3
+
+
+def test_history_skips_no_serial(tmp_path):
+    """Drive tanpa serial tak dicatat (tak ada identitas untuk melacak)."""
+    from amubasmart.history import History
+
+    h = History(tmp_path / "h.db")
+    r = analyze("/dev/sdz", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 36, 0)]), True)
+    assert h.record(r) is False
+    assert h.drives() == []
+
+
+def test_history_fifo_limit(tmp_path, monkeypatch):
+    """Snapshot dibatasi MAX_SNAPSHOTS per drive (FIFO)."""
+    from datetime import datetime, timedelta, timezone
+    from amubasmart import history as hist
+
+    monkeypatch.setattr(hist, "MAX_SNAPSHOTS", 3)
+    h = hist.History(tmp_path / "h.db")
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    for i in range(6):
+        data = _ata([_attr(5, "Reallocated_Sector_Ct", 100, 36, i)])
+        data["serial_number"] = "SN-X"
+        h.record(analyze("/dev/sda", data, True), scanned_at=base + timedelta(days=i))
+    snaps = h.history_for("SN-X")
+    assert len(snaps) == 3                            # cuma 3 terbaru
+    assert snaps[0].realloc == 5                      # terbaru (i=5)

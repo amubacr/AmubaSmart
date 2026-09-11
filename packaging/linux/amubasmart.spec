@@ -109,6 +109,8 @@ install -D -m 0644 packaging/amubasmart.desktop \
   dengan kop logo, badge status berwarna, dan tabel atribut lengkap per disk
 - CRC error (ID 199) di-cap WARN, tak lagi memicu KRITIS keliru (masalah kabel)
 - PDF: kolom Raw dirapikan (buang notasi ilmiah yang bertabrakan)
+- Riwayat scan otomatis (SQLite per serial): lacak pergerakan health, realloc,
+  CRC, suhu antar waktu; dialog Riwayat (Ctrl+H) menampilkan tren per drive
 - Deteksi flashdisk (USB removable) -> label netral, bukan alarm GAGAL
 - Auto-retry flag -d untuk drive di balik USB bridge (dock NVMe JMicron dll)
 
