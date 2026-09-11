@@ -88,15 +88,6 @@ cepat, dan lebih jarang kena false-positive antivirus. Inno Setup tetap
 menghasilkan satu `Setup.exe`, jadi tujuan "1 file" tercapai tanpa kelemahan
 onefile. Detail lengkap: `packaging/windows/README.md`.
 
-### Lisensi & signing (penting)
-
-- **smartmontools GPL-2.0**: mendistribusikan binary-nya boleh, tapi wajib
-  menyertakan teks lisensi (installer sudah menampilkannya). AmubaSMART memanggil
-  `smartctl.exe` sebagai proses terpisah, jadi kode kita tidak tertular GPL.
-- **Tanpa code signing**, Windows SmartScreen menampilkan peringatan "Unknown
-  publisher". Untuk pemakaian di banyak PC klien, sebuah sertifikat menghilangkan
-  peringatan itu.
-
 ## Fedora / RHEL — .rpm
 
 ```bash
