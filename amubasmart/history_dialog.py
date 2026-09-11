@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
-    QAbstractItemView, QDialog, QDialogButtonBox, QHBoxLayout, QHeaderView, QLabel,
-    QListWidget, QListWidgetItem, QMessageBox, QTableWidget, QVBoxLayout, QWidget,
+    QAbstractItemView, QDialog, QDialogButtonBox, QFileDialog, QHBoxLayout,
+    QHeaderView, QLabel, QListWidget, QListWidgetItem, QMenu, QMessageBox,
+    QTableWidget, QVBoxLayout, QWidget,
 )
 
 from .history import History, Snapshot, level_from_name
@@ -68,6 +69,10 @@ class HistoryDialog(QDialog):
         layout.addWidget(self.trend_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        self.btn_export = buttons.addButton("Ekspor CSV…",
+                                            QDialogButtonBox.ButtonRole.ActionRole)
+        self.btn_export.clicked.connect(self._export_menu)
+        self.btn_export.setEnabled(False)
         self.btn_purge = buttons.addButton("Hapus riwayat drive ini",
                                            QDialogButtonBox.ButtonRole.DestructiveRole)
         self.btn_purge.clicked.connect(self._purge_current)
@@ -101,6 +106,7 @@ class HistoryDialog(QDialog):
             self.btn_purge.setEnabled(False)
             return
         self.btn_purge.setEnabled(True)
+        self.btn_export.setEnabled(True)
         snaps = self._history.history_for(serial)
         self._fill_table(snaps)
         self._fill_trend(serial)
@@ -151,6 +157,36 @@ class HistoryDialog(QDialog):
         else:
             self.trend_label.setText(
                 "<i>Belum ada pergerakan tercatat (butuh minimal 2 scan).</i>")
+
+    def _export_menu(self) -> None:
+        """Menu kecil: ekspor drive ini saja, atau semua drive."""
+        menu = QMenu(self)
+        act_one = menu.addAction("Drive ini saja")
+        menu.addAction("Semua drive")
+        chosen = menu.exec(self.btn_export.mapToGlobal(self.btn_export.rect().bottomLeft()))
+        if chosen is None:
+            return
+        item = self.drive_list.currentItem()
+        serial = item.data(Qt.ItemDataRole.UserRole) if item else None
+        self._do_export(serial if chosen is act_one else None)
+
+    def _do_export(self, serial: str | None) -> None:
+        from datetime import datetime
+        stamp = f"{datetime.now():%Y%m%d-%H%M}"
+        default = (f"riwayat-amubasmart-{stamp}.csv" if serial is None
+                   else f"riwayat-{serial}-{stamp}.csv")
+        path, _ = QFileDialog.getSaveFileName(self, "Simpan CSV", default, "CSV (*.csv)")
+        if not path:
+            return
+        if not path.lower().endswith(".csv"):
+            path += ".csv"
+        try:
+            n = self._history.export_csv(path, serial)
+        except OSError as exc:
+            QMessageBox.warning(self, "Ekspor gagal", f"Gagal menulis CSV: {exc}")
+            return
+        QMessageBox.information(self, "Ekspor selesai",
+                                f"{n} baris riwayat disimpan ke:\n{path}")
 
     def _purge_current(self) -> None:
         item = self.drive_list.currentItem()

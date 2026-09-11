@@ -113,6 +113,8 @@ install -D -m 0644 packaging/amubasmart.desktop \
   CRC, suhu antar waktu; dialog Riwayat (Ctrl+H) menampilkan tren per drive
 - Health: attribute vendor tak dikenal (Unknown_Attribute) tak lagi menyeret
   skor keliru (HGST HUH728080: 49.5% -> 100%)
+- Ekspor riwayat ke CSV (tombol di dialog Riwayat; opsi CLI --export-csv);
+  auto-record riwayat juga jalan di mode CLI (untuk scan terjadwal di server)
 - Deteksi flashdisk (USB removable) -> label netral, bukan alarm GAGAL
 - Auto-retry flag -d untuk drive di balik USB bridge (dock NVMe JMicron dll)
 

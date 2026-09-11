@@ -383,3 +383,38 @@ def test_known_wear_attribute_still_counts():
     ]
     r = analyze("/dev/sda", _ata(attrs), True)
     assert r.health is not None and r.health < 20    # margin (30-25)/(100-25) = 6.7%
+
+
+# ---- Ekspor CSV riwayat ----
+
+def test_history_export_csv(tmp_path):
+    """Ekspor CSV berisi semua snapshot dengan header rapi."""
+    import csv as _csv
+    from amubasmart.history import History
+
+    h = History(tmp_path / "h.db")
+    for rc in (0, 5):
+        data = _ata([_attr(5, "Reallocated_Sector_Ct", 100, 36, rc)])
+        data["serial_number"] = "SN-CSV"
+        h.record(analyze("/dev/sda", data, True))
+    out = tmp_path / "export.csv"
+    n = h.export_csv(str(out))
+    assert n == 2
+    rows = list(_csv.DictReader(out.open()))
+    assert len(rows) == 2
+    assert rows[0]["serial"] == "SN-CSV"
+    assert {r["realloc"] for r in rows} == {"0", "5"}
+
+
+def test_history_export_csv_single_drive(tmp_path):
+    """Ekspor per-drive hanya berisi drive itu."""
+    from amubasmart.history import History
+
+    h = History(tmp_path / "h.db")
+    for sn in ("A", "B"):
+        data = _ata([_attr(5, "Reallocated_Sector_Ct", 100, 36, 0)])
+        data["serial_number"] = sn
+        h.record(analyze("/dev/sda", data, True))
+    out = tmp_path / "one.csv"
+    n = h.export_csv(str(out), serial="A")
+    assert n == 1

@@ -161,8 +161,23 @@ def run_cli(argv: list[str]) -> int:
     parser.add_argument("--color", choices=("auto", "always", "never"), default="auto")
     parser.add_argument("--pdf", metavar="FILE",
                         help="ekspor laporan teknis ke file PDF (mis. --pdf laporan.pdf)")
+    parser.add_argument("--export-csv", metavar="FILE",
+                        help="ekspor riwayat scan ke CSV lalu keluar (tak perlu scan)")
+    parser.add_argument("--no-history", action="store_true",
+                        help="jangan catat scan ini ke riwayat")
     parser.add_argument("-V", "--version", action="version", version=f"AmubaSMART {__version__}")
     args = parser.parse_args(argv)
+
+    # --export-csv adalah aksi baca DB murni: tak perlu scan (dan tak perlu root).
+    if args.export_csv:
+        try:
+            from .history import History
+            n = History().export_csv(args.export_csv)
+            print(f"{n} baris riwayat diekspor ke: {args.export_csv}")
+            return 0
+        except OSError as exc:
+            print(f"Ekspor CSV gagal: {exc}", file=sys.stderr)
+            return 3
 
     reports, fatal = _collect(args.devices)
     if fatal:
@@ -171,6 +186,15 @@ def run_cli(argv: list[str]) -> int:
     if not reports:
         print("Gak ada disk yang kebaca.", file=sys.stderr)
         return 1
+
+    # Auto-catat ke riwayat (kecuali dimatikan). Penting di server: scan cron
+    # terjadwal ikut membangun tren. Best-effort — gagal riwayat tak batalkan scan.
+    if not args.no_history:
+        try:
+            from .history import History
+            History().record_all(reports)
+        except Exception:  # noqa: BLE001
+            pass
 
     if args.pdf:
         try:

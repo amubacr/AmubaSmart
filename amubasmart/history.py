@@ -17,6 +17,7 @@ Desain:
 """
 from __future__ import annotations
 
+import csv
 import json
 import os
 import sqlite3
@@ -244,6 +245,33 @@ class History:
         with self._conn() as c:
             cur = c.execute("DELETE FROM snapshots WHERE serial=?", (serial,))
             return cur.rowcount
+
+    # ---- ekspor ----
+
+    def export_csv(self, out_path: str, serial: str | None = None) -> int:
+        """Ekspor riwayat ke CSV. serial=None -> semua drive. Return jumlah baris.
+
+        Kolom rapi untuk dibuka di spreadsheet / dianalisis / dilampirkan. Serial
+        selalu disertakan supaya baris tetap bisa dikelompokkan per drive.
+        """
+        cols = ["serial", "scanned_at", "device", "model", "level",
+                "health", "health_text", "temperature", "power_on_hours",
+                "realloc", "pending", "crc", "percentage_used"]
+        with self._conn() as c:
+            if serial is None:
+                rows = c.execute(
+                    f"SELECT {','.join(cols)} FROM snapshots "  # noqa: S608 (cols tetap)
+                    "ORDER BY serial, scanned_at").fetchall()
+            else:
+                rows = c.execute(
+                    f"SELECT {','.join(cols)} FROM snapshots WHERE serial=? "  # noqa: S608
+                    "ORDER BY scanned_at", (serial,)).fetchall()
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow(cols)
+            for r in rows:
+                writer.writerow([r[col] if r[col] is not None else "" for col in cols])
+        return len(rows)
 
 
 def _row_to_snapshot(r: sqlite3.Row) -> Snapshot:
