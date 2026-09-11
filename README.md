@@ -144,3 +144,6 @@ amubasmart/
 │   └── install-helper.sh      # pasang helper manual (mode dev, non-paket)
 └── tests/
 ```
+
+### PERHATIAN
+Project ini masih dalam tahap pengembangan, dimohon untuk tidak menggunakan project ini karena status project masih belum stabil / pre-release
