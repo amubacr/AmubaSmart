@@ -21,21 +21,8 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
-# Lokasi helper produksi (root-owned). Dua kemungkinan:
-#   /usr/libexec/       -> dipasang paket RPM/.deb (lokasi standar paket)
-#   /usr/local/libexec/ -> dipasang packaging/install-helper.sh manual
-# Cek keduanya; yang pertama ketemu dipakai.
-INSTALLED_HELPER_CANDIDATES = (
-    Path("/usr/libexec/amubasmart/amubasmart-helper"),
-    Path("/usr/local/libexec/amubasmart/amubasmart-helper"),
-)
-
-
-def installed_helper() -> Path | None:
-    """Path helper terpasang yang benar-benar ada, atau None (mode dev)."""
-    return next((p for p in INSTALLED_HELPER_CANDIDATES if p.is_file()), None)
-
-
+# Lokasi helper produksi (root-owned) — dipasang oleh packaging/install-helper.sh
+INSTALLED_HELPER = Path("/usr/local/libexec/amubasmart/amubasmart-helper")
 DEV_HELPER = Path(__file__).resolve().with_name("smart_helper.py")
 # Helper stdlib-only -> sengaja pakai python sistem, BUKAN python venv.
 SYSTEM_PYTHON = "/usr/bin/python3"
@@ -94,11 +81,9 @@ def build_helper_command(devices: Iterable[str]) -> HelperCommand:
     if pkexec is None:
         raise PrivilegeError("pkexec tidak ditemukan. Install: sudo dnf install polkit")
 
-    helper = installed_helper()
-    if helper is not None:
+    if INSTALLED_HELPER.is_file():
         # Produksi: policy polkit kita (auth_admin_keep) -> password di-cache ~5 menit.
-        # pkexec mencocokkan path helper ini dengan annotate di policy.
-        return HelperCommand([pkexec, str(helper), *devs], PrivilegeMode.PKEXEC)
+        return HelperCommand([pkexec, str(INSTALLED_HELPER), *devs], PrivilegeMode.PKEXEC)
     # Development: action generik org.freedesktop.policykit.exec -> prompt TIAP scan.
     return HelperCommand([pkexec, SYSTEM_PYTHON, str(DEV_HELPER), *devs], PrivilegeMode.PKEXEC)
 
@@ -108,7 +93,7 @@ def describe_mode() -> str:
         return "Mode: langsung (proses sudah root/admin)"
     if is_windows():
         return "Mode: tanpa Administrator — scan akan gagal"
-    if installed_helper() is not None:
+    if INSTALLED_HELPER.is_file():
         return "Mode: pkexec + helper terinstall (password di-cache polkit)"
     return "Mode: pkexec dev (password diminta tiap scan)"
 

@@ -20,8 +20,9 @@ Name:           amubasmart
 # Versi di-inject build-rpm.sh via --define "ver X.Y.Z" (dibaca dari
 # amubasmart/__init__.py, satu sumber kebenaran). Fallback kalau dibuild manual.
 %{!?ver: %global ver 0.0.0}
+%{!?rel: %global rel 1}
 Version:        %{ver}
-Release:        1%{?dist}
+Release:        %{rel}%{?dist}
 Summary:        Analisa kesehatan SMART untuk SSD/HDD (GUI + CLI)
 
 # Kode AmubaSMART: MIT (sesuaikan kalau beda). Catatan: paket ini TIDAK

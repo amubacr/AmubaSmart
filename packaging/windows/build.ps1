@@ -8,6 +8,13 @@ $ErrorActionPreference = "Stop"
 $root = (Resolve-Path "$PSScriptRoot\..\..").Path
 Set-Location $root
 
+# Versi bersih dari __init__.py + release unik dari git (development).
+# AppVersion (bersih) dipakai untuk metadata; AppVerName (dgn release) tampil
+# di Add/Remove Programs supaya tiap build kelihatan beda & bisa upgrade.
+$AppVersion = (python packaging\get-version.py).Trim()
+$AppRelease = (python packaging\get-release.py).Trim()
+Write-Host "Versi build: $AppVersion-$AppRelease" -ForegroundColor Cyan
+
 Write-Host "== 1/4  Venv + dependensi ==" -ForegroundColor Cyan
 if (-not (Test-Path ".venv")) { py -m venv .venv }
 & .\.venv\Scripts\Activate.ps1
@@ -46,7 +53,7 @@ $iscc = @(
     "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
 ) | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw "ISCC.exe tidak ketemu. Install Inno Setup 6 dari jrsoftware.org." }
-& $iscc "packaging\windows\AmubaSMART.iss"
+& $iscc "/DAppVersion=$AppVersion" "/DAppRelease=$AppRelease" "packaging\windows\AmubaSMART.iss"
 
 Write-Host ""
 Write-Host "SELESAI. Installer siap dibagikan:" -ForegroundColor Green

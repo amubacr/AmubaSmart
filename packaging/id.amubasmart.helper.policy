@@ -3,7 +3,7 @@
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <vendor>DiskHealth</vendor>
+  <vendor>AmubaSMART</vendor>
 
   <action id="id.amubasmart.read-smart">
     <description>Read SMART data from disks</description>

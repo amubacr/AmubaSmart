@@ -4,6 +4,7 @@
 set -euo pipefail
 
 VERSION="$(python3 "$(dirname "$0")/../get-version.py")"
+RELEASE="$(python3 "$(dirname "$0")/../get-release.py")"
 NAME=amubasmart
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 TOPDIR="${HOME}/rpmbuild"
@@ -29,11 +30,13 @@ tar -C "$tmp" -czf "$TARBALL" "${NAME}-${VERSION}"
 rm -rf "$tmp"
 
 cp "$ROOT/packaging/linux/${NAME}.spec" "${TOPDIR}/SPECS/"
-rpmbuild -ba --define "ver ${VERSION}" "${TOPDIR}/SPECS/${NAME}.spec"
+rpmbuild -ba --define "ver ${VERSION}" --define "rel ${RELEASE}" \
+  "${TOPDIR}/SPECS/${NAME}.spec"
 
 echo ""
 echo "RPM siap:"
-find "${TOPDIR}/RPMS" -name "${NAME}-${VERSION}*.rpm"
+find "${TOPDIR}/RPMS" -name "${NAME}-${VERSION}-${RELEASE}*.rpm"
 echo ""
-echo "Install lokal (dnf urus dependency otomatis):"
-echo "  sudo dnf install ./${NAME}-${VERSION}-1.*.noarch.rpm"
+echo "Versi build ini: ${VERSION}-${RELEASE}"
+echo "Install/upgrade (tiap build punya release unik dari git):"
+echo "  sudo dnf install ./${NAME}-${VERSION}-${RELEASE}*.noarch.rpm"

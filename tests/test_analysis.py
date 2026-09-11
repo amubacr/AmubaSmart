@@ -46,9 +46,24 @@ def test_inverted_wear_name():
 
 
 def test_margin_score_picks_tightest_attribute():
+    # Dua attribute KEAUSAN asli; yang lebih mepet ke threshold-nya yang menang.
+    # ID 5 (Reallocated) tetap dipakai; ID 169 Bad_Block juga indikator keausan.
     attrs = [_attr(5, "Reallocated_Sector_Ct", 100, 10, 0),
-             _attr(1, "Raw_Read_Error_Rate", 60, 20, 0)]   # (60-20)/80 = 50%
+             _attr(169, "Bad_Block_Count", 60, 20, 0)]   # (60-20)/80 = 50%
     assert sata_health_score(_ata(attrs)) == 50.0
+
+
+def test_non_wear_attributes_excluded_from_score():
+    """Suhu & error-rate TIDAK boleh menyeret skor (kasus nyata ADATA SU650).
+
+    Temperature value=66 thresh=30 -> margin 51.4% KALAU salah dihitung.
+    Dengan pengecualian, attribute keausan sehat (100/50) yang menentukan.
+    """
+    attrs = [_attr(5, "Reallocated_Sector_Ct", 100, 50, 0),
+             _attr(194, "Temperature_Celsius", 66, 30, 34),      # suhu -> diabaikan
+             _attr(1, "Raw_Read_Error_Rate", 77, 44, 0)]         # error-rate -> diabaikan
+    score = sata_health_score(_ata(attrs))
+    assert score == 100.0, f"suhu/error-rate ikut terhitung, skor jadi {score}"
 
 
 def test_thresh_zero_attributes_ignored():
@@ -182,3 +197,60 @@ def test_cli_no_qt_import():
     importlib.import_module("amubasmart.cli")
     assert not any(m.startswith("PyQt6") for m in _sys.modules), \
         "cli.py menarik PyQt6 — akan gagal di server tanpa Qt"
+
+
+# ---- USB bridge auto-retry (kasus SSK DK201) ----
+
+def test_usb_bridge_detection():
+    """Output 'Unknown USB bridge' harus terdeteksi supaya helper coba flag -d."""
+    from amubasmart.smart_helper import _looks_like_usb_bridge
+    bridge = {"smartctl": {"messages": [
+        {"string": "/dev/sdb: Unknown USB bridge [0x152d:0xa586 (0x114)]"}]}}
+    assert _looks_like_usb_bridge(bridge)
+    assert not _looks_like_usb_bridge({"smartctl": {"messages": [{"string": "all good"}]}})
+    assert not _looks_like_usb_bridge({"nvme_smart_health_information_log": {}})
+
+
+def test_usb_bridge_dtype_shown_in_report():
+    """Marker usb_bridge_dtype dari helper harus muncul sebagai detail 'Koneksi'."""
+    data = {
+        "model_name": "WDC SN530", "smart_status": {"passed": True},
+        "temperature": {"current": 57},
+        "nvme_smart_health_information_log": {
+            "percentage_used": 0, "available_spare": 100,
+            "available_spare_threshold": 10, "critical_warning": 0},
+        "amubasmart": {"usb_bridge_dtype": "sntjmicron"},
+    }
+    r = analyze("/dev/sdb", data, True)
+    koneksi = [d for d in r.details if d.label == "Koneksi"]
+    assert koneksi and "sntjmicron" in koneksi[0].value
+
+
+# ---- Flashdisk / USB removable (kasus Cruzer Blade) ----
+
+def test_flashdrive_detection():
+    """TRAN=usb + RM=1 -> flashdisk. SSD internal & SSD-di-dock TIDAK."""
+    from amubasmart.smart_helper import is_flashdrive
+    assert is_flashdrive({"tran": "usb", "removable": True})           # Cruzer Blade
+    assert not is_flashdrive({"tran": "sata", "removable": False})     # SSD internal
+    assert not is_flashdrive({"tran": "usb", "removable": False})      # SSD di dock DK201
+    assert not is_flashdrive({"tran": "nvme", "removable": False})
+
+
+def test_flashdrive_report_is_neutral_not_alarm():
+    """FD dilabeli netral (NA), bukan alarm GAGAL merah, + info kapasitas/model."""
+    meta = {"tran": "usb", "removable": True, "readonly": False,
+            "size": "57,3G", "model": "Cruzer Blade"}
+    r = analyze("/dev/sdd", None, False, flashdrive=True, meta=meta)
+    assert r.dtype == "flashdrive"
+    assert r.overall_level is Level.NA          # netral, bukan WARN/CRIT
+    assert "Cruzer Blade" in r.model
+    assert any("57,3G" in d.value for d in r.details)
+
+
+def test_flashdrive_readonly_flagged():
+    """FD read-only (gejala controller sekarat) -> WARN, bukan netral."""
+    meta = {"tran": "usb", "removable": True, "readonly": True, "model": "FD"}
+    r = analyze("/dev/sdd", None, False, flashdrive=True, meta=meta)
+    assert r.overall_level is Level.WARN
+    assert "READ-ONLY" in r.key_metric

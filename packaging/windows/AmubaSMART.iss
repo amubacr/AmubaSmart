@@ -20,6 +20,11 @@
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
+; AppRelease = nomor build unik dari git (development). Ikut di nama file &
+; AppVerName supaya tiap build kelihatan beda di Add/Remove Programs.
+#ifndef AppRelease
+  #define AppRelease "1"
+#endif
 #define AppPublisher "AmubaSMART"
 #define AppExeName "AmubaSMART.exe"
 
@@ -27,6 +32,8 @@
 AppId={{7C3A9F2E-4B1D-4E88-9A6C-DISKHEALTH01}}
 AppName={#AppName}
 AppVersion={#AppVersion}
+; AppVerName tampil di Add/Remove Programs — sertakan release biar tiap build beda.
+AppVerName={#AppName} {#AppVersion}-{#AppRelease}
 AppPublisher={#AppPublisher}
 ; VersionInfoVersion butuh format X.Y.Z.W — aman untuk metadata file installer.
 VersionInfoVersion={#AppVersion}.0
@@ -35,7 +42,7 @@ DefaultGroupName={#AppName}
 ; App butuh Administrator (baca SMART). Installer per-machine -> perlu admin juga.
 PrivilegesRequired=admin
 OutputDir=..\..\Output
-OutputBaseFilename={#AppName}-Setup-{#AppVersion}
+OutputBaseFilename={#AppName}-Setup-{#AppVersion}-{#AppRelease}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
