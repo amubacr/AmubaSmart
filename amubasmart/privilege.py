@@ -81,9 +81,11 @@ def _self_helper_argv() -> list[str]:
     return [sys.executable, str(DEV_HELPER)]
 
 
-def build_helper_command(devices: Iterable[str]) -> HelperCommand:
+def build_helper_command(devices: Iterable[str], elevate: bool = True) -> HelperCommand:
+    """elevate=False (`--no-elevate`): jalankan helper langsung tanpa pkexec/UAC —
+    untuk kontainer / service yang sudah punya akses device (di sana gak ada pkexec)."""
     devs = list(devices)
-    if is_admin():
+    if is_admin() or not elevate:
         return HelperCommand([*_self_helper_argv(), *devs], PrivilegeMode.DIRECT)
 
     if is_windows():

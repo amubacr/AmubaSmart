@@ -32,9 +32,16 @@ python main.py --cli         # CLI
 amubasmart --cli                 # tabel ringkasan semua disk
 amubasmart --cli /dev/sda        # detail satu disk
 amubasmart --cli --json          # output JSON (buat cron/monitoring)
+amubasmart --cli --json --full   # JSON skema 2: + serial, firmware, kapasitas, POH, metrik, detail & atribut
+
+# Kirim ke hub (mis. ACIFS-D): POST JSON skema 2, Authorization: Bearer <isi token-file>, retry 3x
+amubasmart --cli --push http://127.0.0.1:3002/api/infra/ingest/smart --token-file /run/secrets/token \
+           --no-history --no-elevate   # --no-elevate: tanpa pkexec (kontainer / service root)
 ```
 
-Exit code: `0` sehat semua, `1` ada WARN, `2` ada CRIT, `3` error baca.
+Exit code: `0` sehat semua, `1` ada WARN, `2` ada CRIT, `3` error baca, `4` push gagal.
+
+Tanpa GUI (server / kontainer): `pip install .` cuma memasang inti tanpa Qt; `.[gui]` + PyQt6, `.[pdf]` + reportlab.
 
 ---
 

@@ -1,0 +1,34 @@
+# Paket pip AmubaSMART. Inti (CLI, analisa, helper) murni stdlib — GUI & PDF opsional:
+#   pip install .            -> CLI saja (server / kontainer, tanpa Qt)
+#   pip install ".[gui]"     -> + PyQt6
+#   pip install ".[pdf]"     -> + reportlab (--pdf)
+# Paket RPM/.deb/Windows tetap lewat packaging/ (nggak memakai file ini).
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "amubasmart"
+dynamic = ["version"]
+description = "AmubaSMART — analisa kesehatan disk dari SMART (GUI + CLI)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+gui = ["PyQt6>=6.6"]
+pdf = ["reportlab>=4.0"]
+
+[project.scripts]
+amubasmart = "amubasmart.__main__:main"
+
+[tool.setuptools]
+packages = ["amubasmart"]
+
+[tool.setuptools.dynamic]
+version = { attr = "amubasmart.__version__" }
+
+[tool.setuptools.package-data]
+amubasmart = ["assets/*"]

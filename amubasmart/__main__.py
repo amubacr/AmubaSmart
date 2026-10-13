@@ -9,7 +9,8 @@ from __future__ import annotations
 import os
 import sys
 
-_CLI_FLAGS = {"--cli", "--json", "--detail", "-V", "--version", "-h", "--help"}
+_CLI_FLAGS = {"--cli", "--json", "--full", "--push", "--no-elevate", "--detail", "-V", "--version",
+              "-h", "--help"}
 
 
 def _wants_cli(argv: list[str]) -> bool:

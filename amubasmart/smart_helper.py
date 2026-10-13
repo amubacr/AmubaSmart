@@ -85,13 +85,16 @@ def _set_parent_death_signal() -> None:
     """
     if not sys.platform.startswith("linux"):
         return
+    # Dibandingkan dengan parent awal, bukan `== 1`: di kontainer, `amubasmart` sendiri
+    # bisa PID 1 — dulu helper langsung keluar diam-diam ("Gak ada disk yang kebaca").
+    parent = os.getppid()
     try:
         import ctypes
 
         libc = ctypes.CDLL("libc.so.6", use_errno=True)
         pr_set_pdeathsig = 1
         libc.prctl(pr_set_pdeathsig, signal.SIGTERM)
-        if os.getppid() == 1:  # parent sudah mati sebelum prctl terpasang
+        if os.getppid() != parent:  # parent mati sebelum prctl terpasang (diadopsi init)
             sys.exit(0)
     except OSError:
         pass

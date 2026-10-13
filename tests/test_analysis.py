@@ -167,7 +167,7 @@ def test_cli_json_output(capsys, monkeypatch):
     from amubasmart import cli
 
     fake = analyze("/dev/sda", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 10, 0)]), True)
-    monkeypatch.setattr(cli, "_collect", lambda devices: ([fake], None))
+    monkeypatch.setattr(cli, "_collect", lambda devices, elevate=True: ([fake], None))
     rc = cli.run_cli(["--json"])
     out = capsys.readouterr().out
     payload = json.loads(out)
@@ -183,7 +183,7 @@ def test_cli_exit_code_reflects_worst(capsys, monkeypatch):
 
     crit = analyze("/dev/sdz", _ata([_attr(5, "Reallocated_Sector_Ct", 100, 10, 0)],
                                     passed=False), True)
-    monkeypatch.setattr(cli, "_collect", lambda devices: ([crit], None))
+    monkeypatch.setattr(cli, "_collect", lambda devices, elevate=True: ([crit], None))
     assert cli.run_cli(["--json"]) == 2
 
 

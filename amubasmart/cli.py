@@ -15,12 +15,20 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import socket
 import subprocess
 import sys
-from typing import TextIO
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, TextIO
 
 from . import __version__
-from .analysis import DEFAULT_THRESHOLDS, DiskReport, Level, analyze
+from .analysis import DEFAULT_THRESHOLDS, DiskReport, Level, _get, analyze
+from .history import _extract_metrics, serial_of
 from .privilege import PrivilegeError, build_helper_command
 
 # Kode warna ANSI, dipetakan dari Level. Sengaja sama semangатnya dgn badge() bash.
@@ -51,14 +59,14 @@ def _paint(text: str, level: Level, color: bool) -> str:
 
 # ---------------------------------------------------------------- akuisisi
 
-def _collect(devices: list[str]) -> tuple[list[DiskReport], str | None]:
+def _collect(devices: list[str], elevate: bool = True) -> tuple[list[DiskReport], str | None]:
     """Jalankan helper, kumpulkan DiskReport. Return (reports, fatal_error).
 
     Beda dari worker GUI: sinkron & sederhana. Helper mengeluarkan NDJSON;
     kita baca baris per baris sampai proses selesai.
     """
     try:
-        cmd = build_helper_command(devices)
+        cmd = build_helper_command(devices, elevate=elevate)
     except PrivilegeError as exc:
         return [], str(exc)
 
@@ -128,22 +136,107 @@ def _print_detail(report: DiskReport, color: bool, out: TextIO) -> None:
             print("  " + _paint(line, level, color), file=out)
 
 
-def _to_json(reports: list[DiskReport]) -> str:
+def _disk_basic(r: DiskReport) -> dict[str, Any]:
+    return {
+        "device": r.device, "read_ok": r.read_ok, "protocol": r.dtype,
+        "model": r.model if r.read_ok else None,
+        "temperature_c": r.temperature, "smart_status": r.status,
+        "health_percent": r.health, "not_in_smartctl_db": r.not_in_db,
+        "overall_level": r.overall_level.name,  # OK / WARN / CRIT / NA
+        "key_metric": r.key_metric,
+        "diagnosis": r.diagnosis if not r.read_ok else None,
+    }
+
+
+def _disk_full(r: DiskReport) -> dict[str, Any]:
+    """Skema 2 (`--full`): field lama + identitas, metrik kunci, detail & tabel atribut.
+
+    Dipakai hub ACIFS-D: logika skor tetap di sini (analysis.py), hub cuma simpan & tampilkan.
+    """
+    data = r.raw_json or {}
+    m = _extract_metrics(r)
+    nvme_log = data.get("nvme_smart_health_information_log") or {}
+    capacity = _get(data, "user_capacity", "bytes")
+    if capacity is None:
+        capacity = data.get("nvme_total_capacity")
+    return {
+        **_disk_basic(r),
+        "serial": serial_of(r),
+        "firmware": data.get("firmware_version"),
+        "capacity_bytes": capacity,
+        "power_on_hours": m["power_on_hours"],
+        "health_text": r.health_text,
+        "metrics": {
+            "realloc": m["realloc"], "pending": m["pending"], "crc": m["crc"],
+            "nvme_used_pct": m["percentage_used"],
+            "media_errors": nvme_log.get("media_errors"),
+            "unsafe_shutdowns": nvme_log.get("unsafe_shutdowns"),
+        },
+        "details": [{"label": d.label, "value": d.value, "level": d.level.name} for d in r.details],
+        "attributes": None if r.attributes is None else {
+            "headers": r.attributes.headers,
+            "rows": [{"cells": cells, "level": level.name} for cells, level in r.attributes.rows],
+        },
+    }
+
+
+def _payload(reports: list[DiskReport], full: bool = False) -> dict[str, Any]:
+    disks = sorted(reports, key=lambda x: x.device)
+    if not full:
+        return {"tool": "AmubaSMART", "version": __version__, "disks": [_disk_basic(r) for r in disks]}
+    return {"tool": "AmubaSMART", "version": __version__, "schema": 2,
+            "host": socket.gethostname(),
+            "scanned_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "disks": [_disk_full(r) for r in disks]}
+
+
+def _to_json(reports: list[DiskReport], full: bool = False) -> str:
     """Output mesin-terbaca untuk cron/monitoring (Zabbix, Nagios, dsb)."""
-    payload = [
-        {
-            "device": r.device, "read_ok": r.read_ok, "protocol": r.dtype,
-            "model": r.model if r.read_ok else None,
-            "temperature_c": r.temperature, "smart_status": r.status,
-            "health_percent": r.health, "not_in_smartctl_db": r.not_in_db,
-            "overall_level": r.overall_level.name,  # OK / WARN / CRIT / NA
-            "key_metric": r.key_metric,
-            "diagnosis": r.diagnosis if not r.read_ok else None,
-        }
-        for r in sorted(reports, key=lambda x: x.device)
-    ]
-    return json.dumps({"tool": "AmubaSMART", "version": __version__, "disks": payload},
-                      indent=2, ensure_ascii=False)
+    return json.dumps(_payload(reports, full), indent=2, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------- push
+
+PUSH_ATTEMPTS = 3
+PUSH_TIMEOUT_S = 15
+PUSH_RETRY_DELAY_S = 2.0
+
+
+def _push(url: str, token_file: str | None, payload: dict[str, Any]) -> str | None:
+    """POST JSON skema 2 ke hub (stdlib urllib). Return None kalau terkirim, atau pesan error.
+
+    Dicoba 3x untuk gangguan jaringan / 5xx; 4xx (token salah, ditolak) langsung gagal.
+    """
+    if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+        return f"URL push harus http:// atau https://: {url}"
+    if not token_file:
+        return "--push butuh --token-file"
+    try:
+        token = Path(token_file).read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        return f"Token gak kebaca: {exc}"
+    if not token:
+        return f"File token kosong: {token_file}"
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}",
+               "User-Agent": f"AmubaSMART/{__version__}"}
+    error = "push gagal"
+    for attempt in range(1, PUSH_ATTEMPTS + 1):
+        req = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=PUSH_TIMEOUT_S) as resp:
+                resp.read()
+            return None
+        except urllib.error.HTTPError as exc:
+            error = f"hub menjawab HTTP {exc.code}"
+            if 400 <= exc.code < 500 and exc.code not in (408, 429):
+                return error
+        except (urllib.error.URLError, OSError) as exc:
+            error = f"gak bisa menghubungi hub: {getattr(exc, 'reason', exc)}"
+        if attempt < PUSH_ATTEMPTS:
+            time.sleep(PUSH_RETRY_DELAY_S)
+    return f"{error} (sudah dicoba {PUSH_ATTEMPTS}x)"
 
 
 # ---------------------------------------------------------------- entry
@@ -165,6 +258,13 @@ def run_cli(argv: list[str]) -> int:
                         help="ekspor riwayat scan ke CSV lalu keluar (tak perlu scan)")
     parser.add_argument("--no-history", action="store_true",
                         help="jangan catat scan ini ke riwayat")
+    parser.add_argument("--full", action="store_true",
+                        help="JSON skema 2: + serial, firmware, kapasitas, POH, metrik, detail & atribut")
+    parser.add_argument("--push", metavar="URL",
+                        help="kirim JSON skema 2 ke URL (POST, Bearer dari --token-file)")
+    parser.add_argument("--token-file", metavar="PATH", help="file berisi token untuk --push")
+    parser.add_argument("--no-elevate", action="store_true",
+                        help="jalankan helper langsung tanpa pkexec (kontainer / service root)")
     parser.add_argument("-V", "--version", action="version", version=f"AmubaSMART {__version__}")
     args = parser.parse_args(argv)
 
@@ -179,7 +279,11 @@ def run_cli(argv: list[str]) -> int:
             print(f"Ekspor CSV gagal: {exc}", file=sys.stderr)
             return 3
 
-    reports, fatal = _collect(args.devices)
+    if args.push and not args.token_file:
+        print("Error: --push butuh --token-file", file=sys.stderr)
+        return 3
+
+    reports, fatal = _collect(args.devices, elevate=not args.no_elevate)
     if fatal:
         print(f"Error: {fatal}", file=sys.stderr)
         return 3
@@ -205,7 +309,9 @@ def run_cli(argv: list[str]) -> int:
             print(f"Ekspor PDF gagal: {exc}", file=sys.stderr)
             return 3
     elif args.json:
-        print(_to_json(reports))
+        print(_to_json(reports, full=args.full))
+    elif args.push:
+        pass  # mode service: cukup baris status push di bawah
     else:
         color = _use_color(sys.stdout, args.color)
         if args.detail or args.devices:
@@ -216,7 +322,14 @@ def run_cli(argv: list[str]) -> int:
         else:
             _print_table(reports, color, sys.stdout)
 
+    if args.push:
+        error = _push(args.push, args.token_file, _payload(reports, full=True))
+        if error:
+            print(f"Push gagal: {error}", file=sys.stderr)
+            return 4
+        print(f"Terkirim ke hub: {len(reports)} disk", file=sys.stderr)
+
     # Exit code bermakna buat monitoring: 0 sehat semua, 2 ada yang CRIT,
-    # 1 ada WARN. Script cron bisa `if amubasmart --cli --json; then ...`.
+    # 1 ada WARN, 3 error scan, 4 push gagal. Script cron bisa `if amubasmart --cli --json; then ...`.
     worst = max((r.overall_level for r in reports), default=Level.OK)
     return {Level.CRIT: 2, Level.WARN: 1}.get(worst, 0)
